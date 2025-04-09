@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Copy, Check, Globe } from 'lucide-react';
+import { Mic, MicOff, Copy, Check, Globe, Volume2, VolumeX } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ const SpeechToText = () => {
   const [recognition, setRecognition] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const [language, setLanguage] = useState('en-US');
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
     // Check if the browser supports speech recognition
@@ -93,8 +94,55 @@ const SpeechToText = () => {
       recognition.stop();
       setIsListening(false);
     }
+    
+    // Stop speaking if currently speaking
+    if (isSpeaking) {
+      stopSpeech();
+    }
+    
     setLanguage(value);
     setTranscript('');
+  };
+
+  const speakText = () => {
+    if (!transcript) {
+      toast.error('Please enter or record some text first');
+      return;
+    }
+
+    // Check browser support for speech synthesis
+    if ('speechSynthesis' in window) {
+      // Stop any ongoing speech
+      stopSpeech();
+      
+      const utterance = new SpeechSynthesisUtterance(transcript);
+      utterance.lang = language;
+      
+      // Set up utterance events
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+      };
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
+      
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        toast.error('Speech synthesis failed. Please try again.');
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.error('Speech synthesis is not supported in your browser');
+    }
+  };
+
+  const stopSpeech = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
   };
 
   return (
@@ -124,7 +172,7 @@ const SpeechToText = () => {
               </Select>
             </div>
             
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-4">
               <Button 
                 variant="outline" 
                 size="icon" 
@@ -135,6 +183,19 @@ const SpeechToText = () => {
                 onClick={toggleListening}
               >
                 {isListening ? <MicOff size={36} /> : <Mic size={36} />}
+              </Button>
+
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={cn(
+                  "w-20 h-20 rounded-full transition-all duration-300",
+                  isSpeaking ? "bg-green-100 text-green-500 border-green-300 animate-pulse" : "bg-blue-100 text-blue-500 border-blue-300"
+                )}
+                onClick={isSpeaking ? stopSpeech : speakText}
+                disabled={!transcript}
+              >
+                {isSpeaking ? <VolumeX size={36} /> : <Volume2 size={36} />}
               </Button>
             </div>
             
@@ -154,7 +215,18 @@ const SpeechToText = () => {
           </div>
         </CardContent>
         
-        <CardFooter className="flex justify-end">
+        <CardFooter className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={speakText}
+            disabled={!transcript}
+            className="flex gap-2"
+          >
+            <Volume2 size={16} />
+            {isSpeaking ? "Stop speaking" : "Speak text"}
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
