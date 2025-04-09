@@ -123,16 +123,38 @@ const SpeechToText = () => {
       const utterance = new SpeechSynthesisUtterance(transcript);
       utterance.lang = language;
       
+      // For debugging
+      console.log('Speaking text:', transcript);
+      console.log('Using language:', language);
+      
+      // Get available voices
+      const voices = window.speechSynthesis.getVoices();
+      
+      // Try to find a voice that matches our language
+      const voiceForLanguage = voices.find(voice => 
+        voice.lang.startsWith(language.split('-')[0])
+      );
+      
+      if (voiceForLanguage) {
+        console.log('Found matching voice:', voiceForLanguage.name);
+        utterance.voice = voiceForLanguage;
+      } else {
+        console.log('No matching voice found. Using default voice.');
+      }
+      
       // Set up utterance events
       utterance.onstart = () => {
         setIsSpeaking(true);
+        console.log('Speech started');
       };
       
       utterance.onend = () => {
         setIsSpeaking(false);
+        console.log('Speech ended');
       };
       
-      utterance.onerror = () => {
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsSpeaking(false);
         toast.error('Speech synthesis failed. Please try again.');
       };
