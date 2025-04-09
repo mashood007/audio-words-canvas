@@ -1,16 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Copy, Check } from 'lucide-react';
+import { Mic, MicOff, Copy, Check, Globe } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Define language options
+const languages = [
+  { code: 'en-US', name: 'English' },
+  { code: 'ar-SA', name: 'Arabic' }
+];
 
 const SpeechToText = () => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [recognition, setRecognition] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [language, setLanguage] = useState('en-US');
 
   useEffect(() => {
     // Check if the browser supports speech recognition
@@ -20,7 +28,7 @@ const SpeechToText = () => {
       
       recognitionInstance.continuous = true;
       recognitionInstance.interimResults = true;
-      recognitionInstance.lang = 'en-US';
+      recognitionInstance.lang = language;
       
       recognitionInstance.onresult = (event) => {
         let currentTranscript = '';
@@ -52,7 +60,7 @@ const SpeechToText = () => {
         recognition.stop();
       }
     };
-  }, []);
+  }, [language]);
 
   const toggleListening = () => {
     if (recognition) {
@@ -61,6 +69,7 @@ const SpeechToText = () => {
         setIsListening(false);
       } else {
         setTranscript('');
+        recognition.lang = language;
         recognition.start();
         setIsListening(true);
       }
@@ -79,6 +88,15 @@ const SpeechToText = () => {
     }
   };
 
+  const handleLanguageChange = (value: string) => {
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    }
+    setLanguage(value);
+    setTranscript('');
+  };
+
   return (
     <div className="container max-w-2xl mx-auto p-4">
       <Card className="shadow-lg">
@@ -87,31 +105,52 @@ const SpeechToText = () => {
         </CardHeader>
         
         <CardContent>
-          <div className="flex justify-center mb-6">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className={cn(
-                "w-20 h-20 rounded-full transition-all duration-300",
-                isListening ? "bg-red-100 text-red-500 border-red-300 animate-pulse" : "bg-purple-100 text-purple-500 border-purple-300"
+          <div className="flex flex-col space-y-4">
+            <div className="flex justify-between items-center mb-2">
+              <Select value={language} onValueChange={handleLanguageChange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        {lang.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex justify-center">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={cn(
+                  "w-20 h-20 rounded-full transition-all duration-300",
+                  isListening ? "bg-red-100 text-red-500 border-red-300 animate-pulse" : "bg-purple-100 text-purple-500 border-purple-300"
+                )}
+                onClick={toggleListening}
+              >
+                {isListening ? <MicOff size={36} /> : <Mic size={36} />}
+              </Button>
+            </div>
+            
+            <div className={cn(
+              "bg-slate-50 p-4 rounded-md min-h-32 transition-all",
+              transcript ? "border border-slate-200" : "border border-transparent",
+              language === 'ar-SA' ? "text-right" : "text-left"
+            )}>
+              {transcript ? (
+                <p className="break-words">{transcript}</p>
+              ) : (
+                <p className="text-slate-400 text-center">
+                  {isListening ? "Listening..." : "Press the microphone button and start speaking"}
+                </p>
               )}
-              onClick={toggleListening}
-            >
-              {isListening ? <MicOff size={36} /> : <Mic size={36} />}
-            </Button>
-          </div>
-          
-          <div className={cn(
-            "bg-slate-50 p-4 rounded-md min-h-32 transition-all",
-            transcript ? "border border-slate-200" : "border border-transparent"
-          )}>
-            {transcript ? (
-              <p className="break-words">{transcript}</p>
-            ) : (
-              <p className="text-slate-400 text-center">
-                {isListening ? "Listening..." : "Press the microphone button and start speaking"}
-              </p>
-            )}
+            </div>
           </div>
         </CardContent>
         
