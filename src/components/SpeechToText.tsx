@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Copy, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { cn } from '@/lib/utils';
 
 const SpeechToText = () => {
