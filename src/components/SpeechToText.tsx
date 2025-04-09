@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 // Define language options
 const languages = [
@@ -104,6 +105,10 @@ const SpeechToText = () => {
     setTranscript('');
   };
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setTranscript(e.target.value);
+  };
+
   const speakText = () => {
     if (!transcript) {
       toast.error('Please enter or record some text first');
@@ -199,19 +204,18 @@ const SpeechToText = () => {
               </Button>
             </div>
             
-            <div className={cn(
-              "bg-slate-50 p-4 rounded-md min-h-32 transition-all",
-              transcript ? "border border-slate-200" : "border border-transparent",
-              language === 'ar-SA' ? "text-right" : "text-left"
-            )}>
-              {transcript ? (
-                <p className="break-words">{transcript}</p>
-              ) : (
-                <p className="text-slate-400 text-center">
-                  {isListening ? "Listening..." : "Press the microphone button and start speaking"}
-                </p>
+            <Textarea 
+              className={cn(
+                "min-h-32 transition-all resize-y",
+                language === 'ar-SA' ? "text-right" : "text-left"
               )}
-            </div>
+              placeholder={isListening 
+                ? "Listening..." 
+                : "Type or speak to convert text..."}
+              value={transcript}
+              onChange={handleTextChange}
+              dir={language === 'ar-SA' ? 'rtl' : 'ltr'}
+            />
           </div>
         </CardContent>
         
