@@ -1,26 +1,42 @@
 
 import React, { useState, useEffect } from 'react';
-import { useLessons } from '@/context/LessonContext';
+import { useLessons, Lesson } from '@/context/LessonContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Mic, MicOff, Volume2, BookOpen, CheckCircle, XCircle } from 'lucide-react';
+import { Mic, MicOff, Volume2, BookOpen, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import CourseSelector from './CourseSelector';
 
 const ArabicLessons = () => {
-  const { filteredLessons, currentLesson, setCurrentLesson, filterLessons } = useLessons();
+  const { 
+    filteredLessons, 
+    currentLesson, 
+    setCurrentLesson, 
+    filterLessons, 
+    currentCourse, 
+    setCurrentCourse,
+    getLessonsByCourseId
+  } = useLessons();
+  
   const [userSpeech, setUserSpeech] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechResult, setSpeechResult] = useState<'correct' | 'incorrect' | null>(null);
   const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+  const [displayMode, setDisplayMode] = useState<'courses' | 'lessons'>('courses');
+  
+  // Current lessons based on selected course
+  const courseLessons = currentCourse ? currentCourse.lessons : [];
 
   // Initialize speech recognition
   useEffect(() => {
-    // Filter lessons by Arabic language and selected difficulty
-    filterLessons('ar-SA', difficulty);
+    if (displayMode === 'lessons' && !currentCourse) {
+      // If in lessons mode but no course selected, filter by difficulty (legacy behavior)
+      filterLessons('ar-SA', difficulty);
+    }
 
     // Check if the browser supports speech recognition
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -66,7 +82,7 @@ const ArabicLessons = () => {
         recognition.stop();
       }
     };
-  }, [difficulty]);
+  }, [difficulty, displayMode, currentCourse]);
 
   // Toggle listening state
   const toggleListening = () => {
@@ -207,12 +223,27 @@ const ArabicLessons = () => {
   };
 
   // Select a lesson
-  const handleSelectLesson = (lesson: typeof filteredLessons[0]) => {
+  const handleSelectLesson = (lesson: Lesson) => {
     setCurrentLesson(lesson);
     setUserSpeech('');
     setSpeechResult(null);
     if (isListening) {
       toggleListening(); // Stop listening when selecting a new lesson
+    }
+  };
+
+  // Back to courses view
+  const handleBackToCourses = () => {
+    setDisplayMode('courses');
+    setCurrentLesson(null);
+  };
+
+  // Handle course selection
+  const handleViewCourseLessons = () => {
+    if (currentCourse) {
+      setDisplayMode('lessons');
+    } else {
+      toast.error('Please select a course first');
     }
   };
 
@@ -224,103 +255,135 @@ const ArabicLessons = () => {
         </CardHeader>
         
         <CardContent>
-          <Tabs value={difficulty} onValueChange={handleDifficultyChange} className="mb-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="beginner">Beginner</TabsTrigger>
-              <TabsTrigger value="intermediate">Intermediate</TabsTrigger>
-              <TabsTrigger value="advanced">Advanced</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
-          <div className="flex flex-col space-y-4">
-            <div className="grid grid-cols-1 gap-3">
-              {filteredLessons.map((lesson) => (
-                <Button
-                  key={lesson.id}
-                  variant={currentLesson?.id === lesson.id ? "default" : "outline"}
-                  className={cn(
-                    "justify-start text-right px-4 py-6 h-auto",
-                    currentLesson?.id === lesson.id ? "bg-purple-600" : ""
-                  )}
-                  onClick={() => handleSelectLesson(lesson)}
-                >
-                  <div className="flex items-center w-full">
-                    <BookOpen className="mr-2 h-5 w-5" />
-                    <span>{lesson.text}</span>
-                  </div>
+          {displayMode === 'courses' ? (
+            <>
+              <CourseSelector />
+              <div className="flex justify-center mt-6">
+                <Button onClick={handleViewCourseLessons}>
+                  View Course Lessons
                 </Button>
-              ))}
-            </div>
-            
-            {filteredLessons.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No lessons available for the selected difficulty.
               </div>
-            )}
-            
-            {currentLesson && (
-              <div className="mt-6">
-                <Card className="bg-slate-50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-md font-medium">Current Lesson</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg text-right leading-relaxed" dir="rtl">{currentLesson.text}</p>
-                  </CardContent>
-                  <CardFooter className="flex justify-between pt-0">
+            </>
+          ) : (
+            <>
+              <div className="flex items-center mb-6">
+                <Button variant="outline" size="sm" onClick={handleBackToCourses} className="mr-2">
+                  <ArrowLeft className="h-4 w-4 mr-1" /> Back to Courses
+                </Button>
+                {currentCourse && (
+                  <h3 className="text-lg font-medium">{currentCourse.title}</h3>
+                )}
+              </div>
+              
+              {!currentCourse && (
+                <Tabs value={difficulty} onValueChange={handleDifficultyChange} className="mb-6">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="beginner">Beginner</TabsTrigger>
+                    <TabsTrigger value="intermediate">Intermediate</TabsTrigger>
+                    <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
+              
+              <div className="flex flex-col space-y-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {(currentCourse ? courseLessons : filteredLessons).map((lesson) => (
                     <Button
-                      variant="outline"
-                      size="sm"
+                      key={lesson.id}
+                      variant={currentLesson?.id === lesson.id ? "default" : "outline"}
                       className={cn(
-                        "transition-all",
-                        isSpeaking ? "bg-green-100 text-green-700" : ""
+                        "justify-start text-right px-4 py-6 h-auto",
+                        currentLesson?.id === lesson.id ? "bg-purple-600" : ""
                       )}
-                      onClick={speakLesson}
+                      onClick={() => handleSelectLesson(lesson)}
                     >
-                      <Volume2 className="mr-2 h-4 w-4" />
-                      {isSpeaking ? 'Speaking...' : 'Listen'}
+                      <div className="flex items-center w-full">
+                        <BookOpen className="mr-2 h-5 w-5" />
+                        <span className="flex-1 text-right">{lesson.text}</span>
+                        {lesson.translation && (
+                          <span className="text-xs text-gray-500 ml-2 whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
+                            {lesson.translation}
+                          </span>
+                        )}
+                      </div>
                     </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "transition-all",
-                        isListening ? "bg-red-100 text-red-700 animate-pulse" : ""
-                      )}
-                      onClick={toggleListening}
-                    >
-                      {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                      {isListening ? 'Stop' : 'Practice Speaking'}
-                    </Button>
-                  </CardFooter>
-                </Card>
+                  ))}
+                </div>
+                
+                {(currentCourse ? courseLessons.length === 0 : filteredLessons.length === 0) && (
+                  <div className="text-center py-8 text-gray-500">
+                    No lessons available for the selected difficulty.
+                  </div>
+                )}
+                
+                {currentLesson && (
+                  <div className="mt-6">
+                    <Card className="bg-slate-50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-md font-medium">Current Lesson</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-lg text-right leading-relaxed" dir="rtl">{currentLesson.text}</p>
+                        {currentLesson.translation && (
+                          <p className="text-sm text-gray-600 mt-2">{currentLesson.translation}</p>
+                        )}
+                      </CardContent>
+                      <CardFooter className="flex justify-between pt-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "transition-all",
+                            isSpeaking ? "bg-green-100 text-green-700" : ""
+                          )}
+                          onClick={speakLesson}
+                        >
+                          <Volume2 className="mr-2 h-4 w-4" />
+                          {isSpeaking ? 'Speaking...' : 'Listen'}
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "transition-all",
+                            isListening ? "bg-red-100 text-red-700 animate-pulse" : ""
+                          )}
+                          onClick={toggleListening}
+                        >
+                          {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                          {isListening ? 'Stop' : 'Practice Speaking'}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </div>
+                )}
+                
+                {userSpeech && (
+                  <div className="mt-4">
+                    <Card className={cn(
+                      "bg-slate-50",
+                      speechResult === 'correct' ? "border-green-300" : 
+                      speechResult === 'incorrect' ? "border-red-300" : ""
+                    )}>
+                      <CardHeader className="pb-2 flex flex-row justify-between items-center">
+                        <CardTitle className="text-md font-medium">Your Speech</CardTitle>
+                        {speechResult === 'correct' && (
+                          <CheckCircle className="h-6 w-6 text-green-600" />
+                        )}
+                        {speechResult === 'incorrect' && (
+                          <XCircle className="h-6 w-6 text-red-600" />
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-lg text-right leading-relaxed" dir="rtl">{userSpeech}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
-            )}
-            
-            {userSpeech && (
-              <div className="mt-4">
-                <Card className={cn(
-                  "bg-slate-50",
-                  speechResult === 'correct' ? "border-green-300" : 
-                  speechResult === 'incorrect' ? "border-red-300" : ""
-                )}>
-                  <CardHeader className="pb-2 flex flex-row justify-between items-center">
-                    <CardTitle className="text-md font-medium">Your Speech</CardTitle>
-                    {speechResult === 'correct' && (
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    )}
-                    {speechResult === 'incorrect' && (
-                      <XCircle className="h-6 w-6 text-red-600" />
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg text-right leading-relaxed" dir="rtl">{userSpeech}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
