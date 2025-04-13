@@ -223,10 +223,11 @@ const getApiKey = () => {
   // For production, you would use an environment variable
   // Since we can't directly access env variables in the client, you would need
   // to expose it through a server endpoint or at build time
-  const envApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  // const envApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   
   // Fallback to localStorage if no env variable
-  return envApiKey || localStorage.getItem('openrouter_api_key') || '';
+  // return envApiKey || localStorage.getItem('openrouter_api_key') || '';
+  return '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'
 };
 
 // Provider component
