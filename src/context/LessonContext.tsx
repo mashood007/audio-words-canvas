@@ -212,6 +212,7 @@ interface LessonContextType {
   setCurrentLesson: (lesson: Lesson | null) => void;
   filterLessons: (language: string, difficulty?: string) => void;
   getLessonsByCourseId: (courseId: string) => Lesson[];
+  matchSpeechWithOpenAI: (audioBlob: Blob) => Promise<string>;
 }
 
 // Create context
@@ -242,6 +243,34 @@ export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
     return course ? course.lessons : [];
   };
 
+  // Match speech using OpenAI's API
+  const matchSpeechWithOpenAI = async (audioBlob: Blob): Promise<string> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'speech.webm');
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'ar');
+      
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('openai_api_key') || ''}`,
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data.text || '';
+    } catch (error) {
+      console.error('Error using OpenAI speech recognition:', error);
+      throw error;
+    }
+  };
+
   return (
     <LessonContext.Provider
       value={{
@@ -256,6 +285,7 @@ export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
         setCurrentLesson,
         filterLessons,
         getLessonsByCourseId,
+        matchSpeechWithOpenAI,
       }}
     >
       {children}

@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useLessons, Lesson } from '@/context/LessonContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Mic, MicOff, Volume2, BookOpen, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Volume2, BookOpen, CheckCircle, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import CourseSelector from './CourseSelector';
+import OpenAIKeyInput from './OpenAIKeyInput';
 
 const ArabicLessons = () => {
   const { 
@@ -18,79 +20,104 @@ const ArabicLessons = () => {
     setCurrentCourse,
     getLessonsByCourseId,
     displayMode,
-    setDisplayMode
+    setDisplayMode,
+    matchSpeechWithOpenAI
   } = useLessons();
   
   const [userSpeech, setUserSpeech] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [speechResult, setSpeechResult] = useState<'correct' | 'incorrect' | null>(null);
   const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+  const [useOpenAI, setUseOpenAI] = useState(true);
   
   const courseLessons = currentCourse ? currentCourse.lessons : [];
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     if (displayMode === 'lessons' && !currentCourse) {
       filterLessons('ar-SA', difficulty);
     }
-
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      
-      recognitionInstance.continuous = true;
-      recognitionInstance.interimResults = true;
-      recognitionInstance.lang = 'ar-SA';
-      
-      recognitionInstance.onresult = (event) => {
-        let currentTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
-        setUserSpeech(currentTranscript);
-        
-        if (currentLesson && currentTranscript.trim().length > 0) {
-          checkSpeechMatch(currentTranscript, currentLesson.text);
-        }
-      };
-      
-      recognitionInstance.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-        setIsListening(false);
-        toast.error('Speech recognition error. Please try again.');
-      };
-      
-      recognitionInstance.onend = () => {
-        if (isListening) {
-          recognitionInstance.start();
-        }
-      };
-      
-      setRecognition(recognitionInstance);
-    } else {
-      toast.error('Speech recognition is not supported in your browser');
-    }
     
     return () => {
-      if (recognition) {
-        recognition.stop();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
       }
     };
-  }, [difficulty, displayMode, currentCourse]);
+  }, [difficulty, displayMode, currentCourse, filterLessons]);
+
+  const startRecording = async () => {
+    try {
+      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const options = { mimeType: 'audio/webm' };
+      
+      const mediaRecorder = new MediaRecorder(stream, options);
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setIsProcessing(true);
+        
+        try {
+          // Use OpenAI for speech recognition
+          if (useOpenAI) {
+            if (!localStorage.getItem('openai_api_key')) {
+              toast.error('Please provide an OpenAI API key first.');
+              setIsProcessing(false);
+              return;
+            }
+            
+            const transcription = await matchSpeechWithOpenAI(audioBlob);
+            setUserSpeech(transcription);
+            if (currentLesson) {
+              checkSpeechMatch(transcription, currentLesson.text);
+            }
+          } else {
+            // Fallback to browser speech recognition if OpenAI is not used
+            toast.error('Browser speech recognition for Arabic is not reliable. Please use OpenAI option.');
+          }
+        } catch (error) {
+          console.error('Speech recognition error:', error);
+          toast.error('Speech recognition failed. Please try again.');
+        } finally {
+          setIsProcessing(false);
+        }
+        
+        // Stop all tracks to release the microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsListening(true);
+      setUserSpeech('');
+      setSpeechResult(null);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      toast.error('Could not access microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
   const toggleListening = () => {
-    if (recognition) {
-      if (isListening) {
-        recognition.stop();
-        setIsListening(false);
-      } else {
-        setUserSpeech('');
-        setSpeechResult(null);
-        recognition.lang = 'ar-SA';
-        recognition.start();
-        setIsListening(true);
-      }
+    if (isListening) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
@@ -222,6 +249,8 @@ const ArabicLessons = () => {
             <CourseSelector />
           ) : (
             <>
+              <OpenAIKeyInput />
+              
               <div className="flex items-center mb-6">
                 <Button variant="outline" size="sm" onClick={handleBackToCourses} className="mr-2">
                   <ArrowLeft className="h-4 w-4 mr-1" /> Back to Courses
@@ -306,9 +335,16 @@ const ArabicLessons = () => {
                             isListening ? "bg-red-100 text-red-700 animate-pulse" : ""
                           )}
                           onClick={toggleListening}
+                          disabled={isProcessing}
                         >
-                          {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                          {isListening ? 'Stop' : 'Practice Speaking'}
+                          {isProcessing ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : isListening ? (
+                            <MicOff className="h-4 w-4 mr-2" />
+                          ) : (
+                            <Mic className="h-4 w-4 mr-2" />
+                          )}
+                          {isProcessing ? 'Processing...' : isListening ? 'Stop' : 'Practice Speaking'}
                         </Button>
                       </CardFooter>
                     </Card>
