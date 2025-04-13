@@ -12,7 +12,7 @@ const OpenAIKeyInput = () => {
 
   useEffect(() => {
     // Check if there's a saved API key
-    const savedKey = localStorage.getItem('openai_api_key');
+    const savedKey = localStorage.getItem('openrouter_api_key');
     if (savedKey) {
       setApiKey(savedKey);
       setIsSaved(true);
@@ -21,11 +21,11 @@ const OpenAIKeyInput = () => {
 
   const handleSaveKey = () => {
     if (!apiKey.trim()) {
-      toast.error('Please enter an OpenAI API key');
+      toast.error('Please enter an OpenRouter API key');
       return;
     }
 
-    localStorage.setItem('openai_api_key', apiKey.trim());
+    localStorage.setItem('openrouter_api_key', apiKey.trim());
     setIsSaved(true);
     toast.success('API key saved successfully');
   };
@@ -35,7 +35,7 @@ const OpenAIKeyInput = () => {
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center">
           <Key className="h-5 w-5 mr-2 text-orange-500" />
-          OpenAI API Key
+          OpenRouter API Key
         </CardTitle>
         <CardDescription>
           Required for better Arabic speech recognition
@@ -47,7 +47,7 @@ const OpenAIKeyInput = () => {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter your OpenAI API key"
+            placeholder="Enter your OpenRouter API key"
             className="flex-1"
           />
           <Button onClick={handleSaveKey} variant="outline">

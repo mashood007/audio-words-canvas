@@ -212,11 +212,22 @@ interface LessonContextType {
   setCurrentLesson: (lesson: Lesson | null) => void;
   filterLessons: (language: string, difficulty?: string) => void;
   getLessonsByCourseId: (courseId: string) => Lesson[];
-  matchSpeechWithOpenAI: (audioBlob: Blob) => Promise<string>;
+  matchSpeechWithOpenRouter: (audioBlob: Blob) => Promise<string>;
 }
 
 // Create context
 const LessonContext = createContext<LessonContextType | undefined>(undefined);
+
+// Get API key from environment or localStorage as fallback
+const getApiKey = () => {
+  // For production, you would use an environment variable
+  // Since we can't directly access env variables in the client, you would need
+  // to expose it through a server endpoint or at build time
+  const envApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  
+  // Fallback to localStorage if no env variable
+  return envApiKey || localStorage.getItem('openrouter_api_key') || '';
+};
 
 // Provider component
 export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
@@ -243,30 +254,47 @@ export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
     return course ? course.lessons : [];
   };
 
-  // Match speech using OpenAI's API
-  const matchSpeechWithOpenAI = async (audioBlob: Blob): Promise<string> => {
+  // Match speech using OpenRouter API
+  const matchSpeechWithOpenRouter = async (audioBlob: Blob): Promise<string> => {
     try {
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'speech.webm');
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'ar');
-      
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      // Convert audio blob to base64
+      const buffer = await audioBlob.arrayBuffer();
+      const base64Audio = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      // Get API key
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        throw new Error('OpenRouter API key is not provided');
+      }
+
+      // Call OpenRouter API for speech-to-text
+      const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('openai_api_key') || ''}`,
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.href, // Required by OpenRouter
+          'X-Title': 'Arabic Learning App' // Optional but recommended
         },
-        body: formData,
+        body: JSON.stringify({
+          model: 'anthropic/claude-3-haiku', // You can change the model as needed
+          file: `data:audio/webm;base64,${base64Audio}`,
+          language: 'ar'
+        }),
       });
       
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('OpenRouter API error:', errorData);
+        throw new Error(`OpenRouter API error: ${response.status}`);
       }
       
       const data = await response.json();
       return data.text || '';
     } catch (error) {
-      console.error('Error using OpenAI speech recognition:', error);
+      console.error('Error using OpenRouter speech recognition:', error);
       throw error;
     }
   };
@@ -285,7 +313,7 @@ export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
         setCurrentLesson,
         filterLessons,
         getLessonsByCourseId,
-        matchSpeechWithOpenAI,
+        matchSpeechWithOpenRouter,
       }}
     >
       {children}

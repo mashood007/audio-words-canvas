@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useLessons, Lesson } from '@/context/LessonContext';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,6 @@ import { Mic, MicOff, Volume2, BookOpen, CheckCircle, XCircle, ArrowLeft, Loader
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import CourseSelector from './CourseSelector';
-import OpenAIKeyInput from './OpenAIKeyInput';
 
 const ArabicLessons = () => {
   const { 
@@ -21,7 +19,7 @@ const ArabicLessons = () => {
     getLessonsByCourseId,
     displayMode,
     setDisplayMode,
-    matchSpeechWithOpenAI
+    matchSpeechWithOpenRouter
   } = useLessons();
   
   const [userSpeech, setUserSpeech] = useState('');
@@ -30,7 +28,6 @@ const ArabicLessons = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [speechResult, setSpeechResult] = useState<'correct' | 'incorrect' | null>(null);
   const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [useOpenAI, setUseOpenAI] = useState(true);
   
   const courseLessons = currentCourse ? currentCourse.lessons : [];
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -67,22 +64,11 @@ const ArabicLessons = () => {
         setIsProcessing(true);
         
         try {
-          // Use OpenAI for speech recognition
-          if (useOpenAI) {
-            if (!localStorage.getItem('openai_api_key')) {
-              toast.error('Please provide an OpenAI API key first.');
-              setIsProcessing(false);
-              return;
-            }
-            
-            const transcription = await matchSpeechWithOpenAI(audioBlob);
-            setUserSpeech(transcription);
-            if (currentLesson) {
-              checkSpeechMatch(transcription, currentLesson.text);
-            }
-          } else {
-            // Fallback to browser speech recognition if OpenAI is not used
-            toast.error('Browser speech recognition for Arabic is not reliable. Please use OpenAI option.');
+          // Use OpenRouter for speech recognition
+          const transcription = await matchSpeechWithOpenRouter(audioBlob);
+          setUserSpeech(transcription);
+          if (currentLesson) {
+            checkSpeechMatch(transcription, currentLesson.text);
           }
         } catch (error) {
           console.error('Speech recognition error:', error);
@@ -249,8 +235,6 @@ const ArabicLessons = () => {
             <CourseSelector />
           ) : (
             <>
-              <OpenAIKeyInput />
-              
               <div className="flex items-center mb-6">
                 <Button variant="outline" size="sm" onClick={handleBackToCourses} className="mr-2">
                   <ArrowLeft className="h-4 w-4 mr-1" /> Back to Courses
