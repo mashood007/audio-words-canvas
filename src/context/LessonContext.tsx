@@ -206,6 +206,8 @@ interface LessonContextType {
   filteredLessons: Lesson[];
   currentCourse: Course | null;
   currentLesson: Lesson | null;
+  displayMode: 'courses' | 'lessons';
+  setDisplayMode: (mode: 'courses' | 'lessons') => void;
   setCurrentCourse: (course: Course | null) => void;
   setCurrentLesson: (lesson: Lesson | null) => void;
   filterLessons: (language: string, difficulty?: string) => void;
@@ -220,6 +222,7 @@ export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
   const [filteredLessons, setFilteredLessons] = useState<Lesson[]>(allLessons);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [currentCourse, setCurrentCourse] = useState<Course | null>(null);
+  const [displayMode, setDisplayMode] = useState<'courses' | 'lessons'>('courses');
 
   // Filter lessons by language and difficulty
   const filterLessons = (language: string, difficulty?: string) => {
@@ -247,6 +250,8 @@ export const LessonProvider = ({ children }: { children: React.ReactNode }) => {
         filteredLessons,
         currentCourse,
         currentLesson,
+        displayMode,
+        setDisplayMode,
         setCurrentCourse,
         setCurrentLesson,
         filterLessons,

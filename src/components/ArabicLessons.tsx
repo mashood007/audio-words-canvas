@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLessons, Lesson } from '@/context/LessonContext';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,9 @@ const ArabicLessons = () => {
     filterLessons, 
     currentCourse, 
     setCurrentCourse,
-    getLessonsByCourseId
+    getLessonsByCourseId,
+    displayMode,
+    setDisplayMode
   } = useLessons();
   
   const [userSpeech, setUserSpeech] = useState('');
@@ -26,19 +27,14 @@ const ArabicLessons = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechResult, setSpeechResult] = useState<'correct' | 'incorrect' | null>(null);
   const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [displayMode, setDisplayMode] = useState<'courses' | 'lessons'>('courses');
   
-  // Current lessons based on selected course
   const courseLessons = currentCourse ? currentCourse.lessons : [];
 
-  // Initialize speech recognition
   useEffect(() => {
     if (displayMode === 'lessons' && !currentCourse) {
-      // If in lessons mode but no course selected, filter by difficulty (legacy behavior)
       filterLessons('ar-SA', difficulty);
     }
 
-    // Check if the browser supports speech recognition
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
@@ -54,7 +50,6 @@ const ArabicLessons = () => {
         }
         setUserSpeech(currentTranscript);
         
-        // Auto-check if the speech matches the lesson text
         if (currentLesson && currentTranscript.trim().length > 0) {
           checkSpeechMatch(currentTranscript, currentLesson.text);
         }
@@ -84,14 +79,12 @@ const ArabicLessons = () => {
     };
   }, [difficulty, displayMode, currentCourse]);
 
-  // Toggle listening state
   const toggleListening = () => {
     if (recognition) {
       if (isListening) {
         recognition.stop();
         setIsListening(false);
       } else {
-        // Clear previous speech before starting new recording
         setUserSpeech('');
         setSpeechResult(null);
         recognition.lang = 'ar-SA';
@@ -101,25 +94,20 @@ const ArabicLessons = () => {
     }
   };
 
-  // Speak the lesson text
   const speakLesson = () => {
     if (!currentLesson) {
       toast.error('Please select a lesson first');
       return;
     }
 
-    // Check browser support for speech synthesis
     if ('speechSynthesis' in window) {
-      // Stop any ongoing speech
       window.speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(currentLesson.text);
       utterance.lang = 'ar-SA';
       
-      // Get available voices
       const voices = window.speechSynthesis.getVoices();
       
-      // Try to find a voice that matches Arabic
       const arabicVoice = voices.find(voice => 
         voice.lang.startsWith('ar')
       );
@@ -131,7 +119,6 @@ const ArabicLessons = () => {
         console.log('No Arabic voice found. Using default voice.');
       }
       
-      // Set up utterance events
       utterance.onstart = () => {
         setIsSpeaking(true);
       };
@@ -152,42 +139,33 @@ const ArabicLessons = () => {
     }
   };
 
-  // Check if the user's speech matches the lesson text
   const checkSpeechMatch = (speech: string, lessonText: string) => {
-    // Normalize both strings (remove diacritics, standardize whitespace, etc.)
     const normalizedSpeech = speech.trim().toLowerCase();
     const normalizedLesson = lessonText.trim().toLowerCase();
     
-    // Simple exact match check
     const isMatch = normalizedSpeech === normalizedLesson;
     
-    // Alternative: calculate similarity for a more forgiving match
     const similarity = calculateStringSimilarity(normalizedSpeech, normalizedLesson);
-    const isClose = similarity > 0.7; // 70% similarity threshold
+    const isClose = similarity > 0.7;
     
     if (isMatch || isClose) {
       setSpeechResult('correct');
       toast.success('Excellent! Your pronunciation is correct.');
     } else if (normalizedSpeech.length > normalizedLesson.length / 2) {
-      // Only set as incorrect if they've spoken enough to make a reasonable comparison
       setSpeechResult('incorrect');
     }
   };
 
-  // Calculate string similarity (Levenshtein distance based)
   const calculateStringSimilarity = (str1: string, str2: string): number => {
     const len1 = str1.length;
     const len2 = str2.length;
     
-    // If either string is empty, similarity is 0
     if (len1 === 0 || len2 === 0) {
       return 0;
     }
     
-    // Create matrix to store distances
     const matrix: number[][] = [];
     
-    // Initialize matrix
     for (let i = 0; i <= len1; i++) {
       matrix[i] = [i];
     }
@@ -196,55 +174,40 @@ const ArabicLessons = () => {
       matrix[0][j] = j;
     }
     
-    // Calculate Levenshtein distance
     for (let i = 1; i <= len1; i++) {
       for (let j = 1; j <= len2; j++) {
         const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
         matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1, // deletion
-          matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j - 1] + cost // substitution
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
         );
       }
     }
     
-    // Calculate similarity ratio
     const distance = matrix[len1][len2];
     const maxLen = Math.max(len1, len2);
     return 1 - distance / maxLen;
   };
 
-  // Handle difficulty change
   const handleDifficultyChange = (value: string) => {
     setDifficulty(value as 'beginner' | 'intermediate' | 'advanced');
-    // Reset speech results
     setUserSpeech('');
     setSpeechResult(null);
   };
 
-  // Select a lesson
   const handleSelectLesson = (lesson: Lesson) => {
     setCurrentLesson(lesson);
     setUserSpeech('');
     setSpeechResult(null);
     if (isListening) {
-      toggleListening(); // Stop listening when selecting a new lesson
+      toggleListening();
     }
   };
 
-  // Back to courses view
   const handleBackToCourses = () => {
     setDisplayMode('courses');
     setCurrentLesson(null);
-  };
-
-  // Handle course selection
-  const handleViewCourseLessons = () => {
-    if (currentCourse) {
-      setDisplayMode('lessons');
-    } else {
-      toast.error('Please select a course first');
-    }
   };
 
   return (
@@ -256,14 +219,7 @@ const ArabicLessons = () => {
         
         <CardContent>
           {displayMode === 'courses' ? (
-            <>
-              <CourseSelector />
-              <div className="flex justify-center mt-6">
-                <Button onClick={handleViewCourseLessons}>
-                  View Course Lessons
-                </Button>
-              </div>
-            </>
+            <CourseSelector />
           ) : (
             <>
               <div className="flex items-center mb-6">

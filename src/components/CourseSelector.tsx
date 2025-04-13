@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { BookOpen } from 'lucide-react';
 
 const CourseSelector = () => {
-  const { courses, currentCourse, setCurrentCourse, setCurrentLesson } = useLessons();
+  const { courses, currentCourse, setCurrentCourse, setCurrentLesson, setDisplayMode } = useLessons();
 
   const handleSelectCourse = (course: Course) => {
     setCurrentCourse(course);
     setCurrentLesson(null); // Reset current lesson when changing course
+    setDisplayMode('lessons'); // Immediately switch to lessons view
   };
 
   return (
